@@ -24,38 +24,42 @@ public class ParseListingTask implements Runnable {
 	private static final Logger LOGGER = Logger
 			.getLogger(ParseListingTask.class.getName());
 	private final HttpClient httpClient;
-	private final String url;
+	private final String baseUrl;
+	private final String path;
 	private final Queue<String> pathsQueue;
 	private final Downloader downloader;
 
-	public ParseListingTask(final HttpClient httpClient, final String url,
-			final Queue<String> pathsQueue, final Downloader downloader) {
+	public ParseListingTask(final HttpClient httpClient, final String baseUrl,
+			final Queue<String> pathsQueue, final Downloader downloader, final String path) {
 		this.httpClient = httpClient;
-		this.url = url;
+		this.baseUrl = baseUrl;
+		this.path = path;
 		this.pathsQueue = pathsQueue;
 		this.downloader = downloader;
 	}
 
 	public void run() {
+		String completeUrl = baseUrl + path;
 		try {
-			parseDirectoryListing();
+			parseDirectoryListing(completeUrl);
 		} catch (ClientProtocolException e) {
-			LOGGER.log(Level.WARNING, "Protocol exception: " + url, e);
+			LOGGER.log(Level.WARNING, "Protocol exception: " + completeUrl, e);
 		} catch (IOException e) {
-			LOGGER.log(Level.WARNING, "IOException: " + url, e);
+			LOGGER.log(Level.WARNING, "IOException: " + completeUrl, e);
 		} catch (URISyntaxException e) {
-			LOGGER.log(Level.WARNING, "Invalid URI: " + url, e);
+			LOGGER.log(Level.WARNING, "Invalid URI: " + completeUrl, e);
 		}
 	}
 
-	private void parseDirectoryListing() throws ClientProtocolException,
-			IOException, URISyntaxException {
-		HttpGet httpget = new HttpGet(new URI(url));
+	private void parseDirectoryListing(String completeUrl) throws ClientProtocolException,
+			IOException, URISyntaxException {		
+		HttpGet httpget = new HttpGet(new URI(completeUrl));
 		ResponseHandler<String> responseHandler = new BasicResponseHandler();
 		String responseBody = httpClient.execute(httpget, responseHandler);
-		Document doc = Jsoup.parse(responseBody, url);
+		Document doc = Jsoup.parse(responseBody, completeUrl);
 		Elements links = doc.select("a[href]");
 		ListIterator<Element> linksIterator = links.listIterator();
+		List<String> newPaths = new LinkedList<String>();
 		while (linksIterator.hasNext()) {
 			Element link = linksIterator.next();
 			String href = link.attr("href");
@@ -63,13 +67,14 @@ public class ParseListingTask implements Runnable {
 				continue;
 			}
 			if (href.endsWith(".pom.asc") || href.endsWith(".pom")) {
-				String fileToDownloadUrl = url + href;
+				String fileToDownloadUrl = completeUrl + href;
 				downloader.downloadFile(fileToDownloadUrl);
 			}
 			if (href.endsWith("/")) {
-				pathsQueue.add(url + href);
+				newPaths.add(path + href);
 			}
 		}
+		pathsQueue.addAll(newPaths);
 	}
 
 }

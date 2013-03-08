@@ -6,12 +6,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.List;
 import java.util.ListIterator;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -39,7 +40,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 public class MavenCentralCrawler implements Downloader {
-	private static final String MAVEN_REPO_BASE = "http://repo1.maven.org/maven2/";
+	protected static final String MAVEN_REPO_BASE = "http://repo1.maven.org/maven2/";
 	private static final Logger LOGGER = Logger
 			.getLogger(MavenCentralCrawler.class.getName());
 	private HttpClient httpClient;
@@ -62,7 +63,7 @@ public class MavenCentralCrawler implements Downloader {
 		try {
 			r = new BufferedReader(new InputStreamReader(
 					MavenCentralCrawler.class
-							.getResourceAsStream("TestMavenRoots.txt")));
+							.getResourceAsStream("MavenRoots.txt")));
 			while (r.ready()) {
 				mavenRootPaths.add(r.readLine());
 			}
@@ -126,15 +127,7 @@ public class MavenCentralCrawler implements Downloader {
 	 */
 	public static void main(String[] args) {
 		MavenCentralCrawler crawler = new MavenCentralCrawler();
-		try {
-			crawler.crawlCentral();
-		} catch (ClientProtocolException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		crawler.crawlCentral();
 		crawler.shutdownExecAndCleanup();
 	}
 
@@ -150,7 +143,30 @@ public class MavenCentralCrawler implements Downloader {
 		}
 	}
 
-	private void crawlCentral() throws ClientProtocolException, IOException {
+	private void crawlCentral() {
+		LOGGER.info("starting...");
+		int count = 0;
+		while (!mavenRootPaths.isEmpty()) {
+			String rootPath = mavenRootPaths.poll();
+			Future<?> result = exec.submit(new ParseListingTask(httpClient,
+					MAVEN_REPO_BASE, mavenRootPaths, this, rootPath));
+			try {
+				result.get();
+			} catch (InterruptedException e) {
+				Thread.interrupted();
+			} catch (ExecutionException e) {
+				LOGGER.log(Level.WARNING,
+						"Problem parsing directory listing at: " + rootPath, e);
+			}
+			count++;
+			if (count % 100 == 0) {
+				LOGGER.info("Count is: " + count + " queue size is "
+						+ mavenRootPaths.size());
+			}
+		}
+	}
+
+	private void crawlCentralOLD() throws ClientProtocolException, IOException {
 		LOGGER.info("starting...");
 		StringBuilder sb = new StringBuilder();
 		int count = 0;
@@ -193,12 +209,12 @@ public class MavenCentralCrawler implements Downloader {
 				System.out.println("Count is: " + count + " queue size is "
 						+ mavenRootPaths.size());
 			}
-
 		}
 		LOGGER.info("finishing...");
 	}
 
 	public void downloadFile(String url) {
-
+		String filePath = url.replace(MAVEN_REPO_BASE, pathToDownloadTo);
+		exec.submit(new DownloadTask(url, httpClient, filePath));
 	}
 }
