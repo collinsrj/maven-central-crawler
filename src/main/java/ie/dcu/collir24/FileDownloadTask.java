@@ -5,59 +5,51 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.protocol.BasicHttpContext;
-import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 
-public class DownloadTask implements Runnable {
-	private static final Logger LOGGER = Logger.getLogger(DownloadTask.class
-			.getName());
-	private static final int MAX_BYTES = 10000000;// 10MB
-	private final URI uri;
-	private final HttpClient httpClient;
-	private final HttpContext httpContext;
+/**
+ * Downloads a file
+ * 
+ * @author rcollins
+ * 
+ */
+public class FileDownloadTask extends AbstractDownloadTask implements Runnable {
+
+	private static final String DOWNLOAD_DIR = System
+			.getProperty("download.dir");
+	private static final String MAVEN_BASE = "http://repo1.maven.org/maven2/";
+	/**
+	 * The path to write the file to
+	 */
 	private final String filePath;
 
 	/**
-	 * Create a download task
 	 * 
-	 * @param uriString the URL of the file to download
-	 * @param httpClient an HTTP client instance
-	 * @param filePath the local file to write to
+	 * @param uriString
+	 *            the full URL to the file
+	 * @param httpClient
+	 *            the {@link HttpClient} to use
 	 */
-	public DownloadTask(final String uriString, final HttpClient httpClient,
-			final String filePath) {
-		try {
-			this.uri = new URI(uriString);
-		} catch (URISyntaxException e) {
-			throw new IllegalArgumentException("Not a valid URL: " + uriString,
-					e);
-		}
-		this.httpClient = httpClient;
-		this.httpContext = new BasicHttpContext();
-		this.filePath = filePath;
+	public FileDownloadTask(String uriString, HttpClient httpClient) {
+		super(uriString, httpClient);
+		filePath = uriString.replace(MAVEN_BASE, DOWNLOAD_DIR);
 	}
 
 	public void run() {
 		getFile();
 	}
 
-	private File getFile() {
+	private void getFile() {
 		HttpGet httpget = null;
-		File newFile = null;
 		try {
 			httpget = new HttpGet(uri);
 			HttpResponse response = httpClient.execute(httpget, httpContext);
@@ -69,7 +61,7 @@ public class DownloadTask implements Runnable {
 				InputStream is = null;
 				try {
 					is = response.getEntity().getContent();
-					newFile = writeFileToDisk(is, filePath);
+					writeFileToDisk(is, filePath);
 				} finally {
 					if (is != null) {
 						is.close();
@@ -78,26 +70,18 @@ public class DownloadTask implements Runnable {
 				break;
 			}
 			case 404: {
-				LOGGER.fine("Didn't find signature file on Maven Central at URI: "
-						+ uri);
+				LOGGER.fine("Unable to download file at URI: " + uri);
 				break;
 			}
 			default:
-				LOGGER.warning("Unexpected response code when downloading signature file from URI: "
+				LOGGER.warning("Unexpected response code when downloading file from URI: "
 						+ uri);
 			}
 			EntityUtils.consume(entity);
-
-		} catch (ClientProtocolException cpe) {
-			httpget.abort();
-			LOGGER.log(Level.SEVERE,
-					"Problem getting signature file from URI: " + uri, cpe);
 		} catch (IOException e) {
 			httpget.abort();
-			LOGGER.log(Level.SEVERE,
-					"Problem getting signature file from URI: " + uri, e);
+			LOGGER.log(Level.SEVERE, "Problem getting file from URI: " + uri, e);
 		}
-		return newFile;
 	}
 
 	/**
@@ -106,7 +90,7 @@ public class DownloadTask implements Runnable {
 	 * @param is
 	 * @param signatureFile
 	 */
-	private static File writeFileToDisk(InputStream is, String path) {
+	private static void writeFileToDisk(InputStream is, String path) {
 		File newFile = new File(path);
 		File parentDirectory = newFile.getParentFile();
 		if (!parentDirectory.exists()) {
@@ -135,6 +119,6 @@ public class DownloadTask implements Runnable {
 				}
 			}
 		}
-		return newFile;
 	}
+
 }

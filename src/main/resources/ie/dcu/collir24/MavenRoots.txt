@@ -1027,7 +1027,7 @@ javainetlocator/
 javamail/
 javancss/
 javanettasks/
-javassist /
+javassist/
 javassist/
 javatar/
 javax/

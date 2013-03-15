@@ -4,18 +4,17 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ListIterator;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
 
 import org.apache.http.Header;
 import org.apache.http.HeaderElement;
@@ -25,62 +24,28 @@ import org.apache.http.HttpRequest;
 import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.entity.GzipDecompressingEntity;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicResponseHandler;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.PoolingClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
-public class MavenCentralCrawler implements Downloader {
+public class MavenCentralCrawler {
 	protected static final String MAVEN_REPO_BASE = "http://repo1.maven.org/maven2/";
-	private static final Logger LOGGER = Logger
-			.getLogger(MavenCentralCrawler.class.getName());
 	private HttpClient httpClient;
-	private final Queue<String> mavenRootPaths = new ConcurrentLinkedQueue<String>();
-	private final String pathToDownloadTo;
-	private final ExecutorService exec = Executors.newFixedThreadPool(6);
+	private final ExecutorService exec = Executors.newFixedThreadPool(10);
 
 	public MavenCentralCrawler() {
 		File downloadDir = new File("maven2");
 		if (!downloadDir.exists()) {
 			downloadDir.mkdir();
 		}
-		pathToDownloadTo = downloadDir.getAbsolutePath() + "/";
+		System.setProperty("download.dir", downloadDir.getAbsolutePath()
+				+ File.separator);
 
 		PoolingClientConnectionManager cm = new PoolingClientConnectionManager();
-		cm.setDefaultMaxPerRoute(4);// increase from the default of 2
+		cm.setDefaultMaxPerRoute(6);// increase from the default of 2
 		httpClient = gzipClient(new DefaultHttpClient(cm));
-		// mavenRootPaths
-		BufferedReader r = null;
-		try {
-			r = new BufferedReader(new InputStreamReader(
-					MavenCentralCrawler.class
-							.getResourceAsStream("MavenRoots.txt")));
-			while (r.ready()) {
-				mavenRootPaths.add(r.readLine());
-			}
-		} catch (IOException e) {
-			throw new RuntimeException(
-					"Couldn't initialize list of Maven Root Paths.", e);
-		} finally {
-			if (r != null) {
-				try {
-					r.close();
-				} catch (IOException e) {
-					throw new RuntimeException(
-							"Couldn't initialize list of Maven Root Paths.", e);
-				}
-			}
-		}
-
 	}
 
 	private static DefaultHttpClient gzipClient(
@@ -124,97 +89,63 @@ public class MavenCentralCrawler implements Downloader {
 
 	/**
 	 * @param args
+	 * @throws NullPointerException
+	 * @throws MalformedObjectNameException
+	 * @throws NotCompliantMBeanException
+	 * @throws MBeanRegistrationException
+	 * @throws InstanceAlreadyExistsException
 	 */
 	public static void main(String[] args) {
 		MavenCentralCrawler crawler = new MavenCentralCrawler();
 		crawler.crawlCentral();
-		crawler.shutdownExecAndCleanup();
 	}
 
-	private void shutdownExecAndCleanup() {
+	private List<String> initPaths() {
+		List<String> paths = new ArrayList<String>(2378);
+		BufferedReader r = null;
+		try {
+			r = new BufferedReader(new InputStreamReader(
+					MavenCentralCrawler.class
+							.getResourceAsStream("MavenRoots.txt")));
+			while (r.ready()) {
+				paths.add(r.readLine());
+			}
+			return paths;
+		} catch (IOException e) {
+			throw new RuntimeException(
+					"Couldn't initialize list of Maven Root Paths.", e);
+		} finally {
+			if (r != null) {
+				try {
+					r.close();
+				} catch (IOException e) {
+					throw new RuntimeException(
+							"Couldn't initialize list of Maven Root Paths.", e);
+				}
+			}
+		}
+	}
+
+	private void crawlCentral() {
+		List<String> paths = initPaths();
+		for (String path : paths) {
+			exec.submit(new LinkTask(MAVEN_REPO_BASE + path, httpClient, exec));
+		}
+	}
+
+	public int getQueueSize() {
+		return ((ThreadPoolExecutor) exec).getQueue().size();
+	}
+
+	public void shutdownExecAndCleanup() {
 		try {
 			exec.shutdown();
-			exec.awaitTermination(4, TimeUnit.HOURS);
+			exec.awaitTermination(30, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
 			Thread.interrupted();
 		} finally {
 			exec.shutdownNow();
 			httpClient.getConnectionManager().shutdown();
 		}
-	}
-
-	private void crawlCentral() {
-		LOGGER.info("starting...");
-		int count = 0;
-		while (!mavenRootPaths.isEmpty()) {
-			String rootPath = mavenRootPaths.poll();
-			Future<?> result = exec.submit(new ParseListingTask(httpClient,
-					MAVEN_REPO_BASE, mavenRootPaths, this, rootPath));
-			try {
-				result.get();
-			} catch (InterruptedException e) {
-				Thread.interrupted();
-			} catch (ExecutionException e) {
-				LOGGER.log(Level.WARNING,
-						"Problem parsing directory listing at: " + rootPath, e);
-			}
-			count++;
-			if (count % 100 == 0) {
-				LOGGER.info("Count is: " + count + " queue size is "
-						+ mavenRootPaths.size());
-			}
-		}
-	}
-
-	private void crawlCentralOLD() throws ClientProtocolException, IOException {
-		LOGGER.info("starting...");
-		StringBuilder sb = new StringBuilder();
-		int count = 0;
-		while (!mavenRootPaths.isEmpty()) {
-			String rootPath = mavenRootPaths.poll();
-			sb.setLength(0);
-			sb.append(MAVEN_REPO_BASE);
-			sb.append(rootPath);
-			String url = sb.toString();
-			HttpGet httpget;
-			try {
-				httpget = new HttpGet(new URI(url));
-			} catch (URISyntaxException e) {
-				LOGGER.log(Level.WARNING, "Invalid URI: " + url, e);
-				continue;
-			}
-			ResponseHandler<String> responseHandler = new BasicResponseHandler();
-			String responseBody = httpClient.execute(httpget, responseHandler);
-			Document doc = Jsoup.parse(responseBody, url);
-			Elements links = doc.select("a[href]");
-			ListIterator<Element> linksIterator = links.listIterator();
-			while (linksIterator.hasNext()) {
-				Element link = linksIterator.next();
-				String href = link.attr("href");
-				if (href.equals("") || href.equals("../")) {
-					continue;
-				}
-				if (href.endsWith(".pom.asc") || href.endsWith(".pom")) {
-					String fileToDownloadUrl = url + href;
-					String filePath = pathToDownloadTo + rootPath + href;
-					exec.execute(new DownloadTask(fileToDownloadUrl,
-							httpClient, filePath));
-				}
-				if (href.endsWith("/")) {
-					mavenRootPaths.add(rootPath + href);
-				}
-			}
-			count++;
-			if (count % 100 == 0) {
-				System.out.println("Count is: " + count + " queue size is "
-						+ mavenRootPaths.size());
-			}
-		}
-		LOGGER.info("finishing...");
-	}
-
-	public void downloadFile(String url) {
-		String filePath = url.replace(MAVEN_REPO_BASE, pathToDownloadTo);
-		exec.submit(new DownloadTask(url, httpClient, filePath));
 	}
 }
