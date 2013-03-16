@@ -31,6 +31,7 @@ import org.jsoup.select.Elements;
  */
 public class LinkTask extends AbstractDownloadTask implements Runnable {
 	private final ExecutorService exec;
+	private static final String MAVEN_BASE = "http://repo1.maven.org/maven2/";
 
 	public LinkTask(final String uriString, final HttpClient httpClient,
 			ExecutorService exec) {
@@ -42,6 +43,7 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 			.compile("maven-metadata.xml$|[^javadoc|sources|test\\-sources|tests].jar$|.pom$|.pom.asc$|[^javadoc|sources|test\\-sources|tests].jar.asc$");
 
 	public void run() {
+		System.out.println("l:" + uri.toString().substring(MAVEN_BASE.length()));
 		String listing;
 		try {
 			listing = getListing();

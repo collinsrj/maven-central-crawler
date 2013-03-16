@@ -1,1 +1,4 @@
+com/54chen/
+com/aconex/
+com/actionbarsherlock/
 com/impetus/kundera-tests/

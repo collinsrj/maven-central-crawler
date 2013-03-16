@@ -45,10 +45,11 @@ public class FileDownloadTask extends AbstractDownloadTask implements Runnable {
 	}
 
 	public void run() {
+		System.out.println("d:" + uri.toString().substring(MAVEN_BASE.length()));
 		getFile();
 	}
 
-	private void getFile() {
+	private void getFile() {		
 		HttpGet httpget = null;
 		try {
 			httpget = new HttpGet(uri);
