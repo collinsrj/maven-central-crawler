@@ -16,7 +16,6 @@ public class TestMetaDataDownloadTask {
 	private static final String TEST_DATA_VERSIONING_VERSION_VERSION = "4.2";
 
 	private static final String TEST_NO_VERSION = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<metadata><plugins><plugin><name>Maven XBean Plugin</name><prefix>xbean</prefix><artifactId>maven-xbean-plugin</artifactId></plugin></plugins></metadata>";
-	
 
 	/**
 	 * Gets the version from the /metadata/versioning/latest element

@@ -1,5 +1,6 @@
 package ie.dcu.collir24;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,13 +31,11 @@ import org.jsoup.select.Elements;
  */
 public class LinkTask extends AbstractDownloadTask implements Runnable {
 	private final ExecutorService exec;
-	private final String uriString;
 
 	public LinkTask(final String uriString, final HttpClient httpClient,
 			ExecutorService exec) {
 		super(uriString, httpClient);
 		this.exec = exec;
-		this.uriString = uriString;
 	}
 
 	private static final Pattern DOWNLOAD_PATTERN = Pattern
@@ -59,10 +58,10 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 
 	private String getLatestVersion(List<String> filesToDownload) {
 		String latestVersion = null;
-		if (filesToDownload.remove("maven-metadata.xml")) {
+		String metadata = containsMetadata(filesToDownload);
+		if (metadata != null) {
 			Future<String> latestVersionFuture = exec
-					.submit(new MetadataVersionTask(uriString
-							+ "maven-metadata.xml", httpClient));
+					.submit(new MetadataVersionTask(metadata, httpClient));
 			try {
 				latestVersion = latestVersionFuture.get();
 			} catch (InterruptedException e) {
@@ -72,6 +71,20 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 			}
 		}
 		return latestVersion;
+	}
+
+	/**
+	 * Checks
+	 * 
+	 * @return
+	 */
+	private static String containsMetadata(List<String> filesToDownload) {
+		for (String file : filesToDownload) {
+			if (file.endsWith("maven-metadata.xml")) {
+				return file;
+			}
+		}
+		return null;
 	}
 
 	private void processListing(List<String> filesToDownload,
@@ -84,7 +97,8 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 				exec.submit(new LinkTask(linkToFollow, httpClient, exec));
 			}
 		} else {
-			exec.submit(new LinkTask(latestVersion + "/", httpClient, exec));
+			exec.submit(new LinkTask(uri + latestVersion + "/", httpClient,
+					exec));
 		}
 	}
 
@@ -105,7 +119,8 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 		while (linksIterator.hasNext()) {
 			Element link = linksIterator.next();
 			String href = link.absUrl("href");
-			if (href.endsWith("../")) {
+
+			if (isParent(completeUrl, href)) {
 				continue;
 			}
 			if (href.endsWith("/")) {
@@ -118,6 +133,21 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 			}
 		}
 		return new List[] { filesToDownload, linksToFollow };
+	}
+
+	/**
+	 * Checks to see if one String is the parent of another
+	 * 
+	 * @param link
+	 *            a link e.g. http://example.com/1/
+	 * @param parent
+	 *            the test parent e.g. http://example.com/
+	 * @return true if 'parent' is the parent of link
+	 */
+	protected static boolean isParent(final String link, final String parent) {
+		File linkFile = new File(link);
+		File parentFile = new File(parent);
+		return linkFile.getParentFile().equals(parentFile);
 	}
 
 }

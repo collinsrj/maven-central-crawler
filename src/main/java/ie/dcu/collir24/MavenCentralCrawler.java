@@ -106,7 +106,7 @@ public class MavenCentralCrawler {
 		try {
 			r = new BufferedReader(new InputStreamReader(
 					MavenCentralCrawler.class
-							.getResourceAsStream("MavenRoots.txt")));
+							.getResourceAsStream("TestMavenRoots2.txt")));
 			while (r.ready()) {
 				paths.add(r.readLine());
 			}

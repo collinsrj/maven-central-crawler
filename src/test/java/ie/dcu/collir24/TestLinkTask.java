@@ -1,6 +1,8 @@
 package ie.dcu.collir24;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -75,14 +77,46 @@ public class TestLinkTask {
 			+ "<a href=\"commons-io-2.4.pom.md5\">commons-io-2.4.pom.md5</a>                             05-Jul-2012 16:03                  55"
 			+ "<a href=\"commons-io-2.4.pom.sha1\">commons-io-2.4.pom.sha1</a>                            05-Jul-2012 16:03                  63"
 			+ "</pre><hr></body>" + "</html>";
-	private static final String TEST_URL = "http://a.com/";
+
+	private static final String JAR_POM_ASC_2 = "<html>"
+			+ "<head><title>Index of /maven2/com/impetus/kundera-tests/2.4/</title></head>"
+			+ "<body bgcolor=\"white\">"
+			+ "<h1>Index of /maven2/com/impetus/kundera-tests/2.4/</h1><hr><pre><a href=\"../\">../</a>"
+			+ "<a href=\"kundera-tests-2.4-javadoc.jar\">kundera-tests-2.4-javadoc.jar</a>                      08-Mar-2013 13:20               66921"
+			+ "<a href=\"kundera-tests-2.4-javadoc.jar.asc\">kundera-tests-2.4-javadoc.jar.asc</a>                  08-Mar-2013 13:20                 316"
+			+ "<a href=\"kundera-tests-2.4-javadoc.jar.asc.md5\">kundera-tests-2.4-javadoc.jar.asc.md5</a>              08-Mar-2013 13:20                  32"
+			+ "<a href=\"kundera-tests-2.4-javadoc.jar.asc.sha1\">kundera-tests-2.4-javadoc.jar.asc.sha1</a>             08-Mar-2013 13:20                  40"
+			+ "<a href=\"kundera-tests-2.4-javadoc.jar.md5\">kundera-tests-2.4-javadoc.jar.md5</a>                  08-Mar-2013 13:20                  32"
+			+ "<a href=\"kundera-tests-2.4-javadoc.jar.sha1\">kundera-tests-2.4-javadoc.jar.sha1</a>                 08-Mar-2013 13:20                  40"
+			+ "<a href=\"kundera-tests-2.4-sources.jar\">kundera-tests-2.4-sources.jar</a>                      08-Mar-2013 13:20               12174"
+			+ "<a href=\"kundera-tests-2.4-sources.jar.asc\">kundera-tests-2.4-sources.jar.asc</a>                  08-Mar-2013 13:20                 316"
+			+ "<a href=\"kundera-tests-2.4-sources.jar.asc.md5\">kundera-tests-2.4-sources.jar.asc.md5</a>              08-Mar-2013 13:20                  32"
+			+ "<a href=\"kundera-tests-2.4-sources.jar.asc.sha1\">kundera-tests-2.4-sources.jar.asc.sha1</a>             08-Mar-2013 13:20                  40"
+			+ "<a href=\"kundera-tests-2.4-sources.jar.md5\">kundera-tests-2.4-sources.jar.md5</a>                  08-Mar-2013 13:20                  32"
+			+ "<a href=\"kundera-tests-2.4-sources.jar.sha1\">kundera-tests-2.4-sources.jar.sha1</a>                 08-Mar-2013 13:20                  40"
+			+ "<a href=\"kundera-tests-2.4.jar\">kundera-tests-2.4.jar</a>                              08-Mar-2013 13:20               19429"
+			+ "<a href=\"kundera-tests-2.4.jar.asc\">kundera-tests-2.4.jar.asc</a>                          08-Mar-2013 13:20                 316"
+			+ "<a href=\"kundera-tests-2.4.jar.asc.md5\">kundera-tests-2.4.jar.asc.md5</a>                      08-Mar-2013 13:20                  32"
+			+ "<a href=\"kundera-tests-2.4.jar.asc.sha1\">kundera-tests-2.4.jar.asc.sha1</a>                     08-Mar-2013 13:20                  40"
+			+ "<a href=\"kundera-tests-2.4.jar.md5\">kundera-tests-2.4.jar.md5</a>                          08-Mar-2013 13:20                  32"
+			+ "<a href=\"kundera-tests-2.4.jar.sha1\">kundera-tests-2.4.jar.sha1</a>                         08-Mar-2013 13:20                  40"
+			+ "<a href=\"kundera-tests-2.4.pom\">kundera-tests-2.4.pom</a>                              08-Mar-2013 13:20               14728"
+			+ "<a href=\"kundera-tests-2.4.pom.asc\">kundera-tests-2.4.pom.asc</a>                          08-Mar-2013 13:20                 316"
+			+ "<a href=\"kundera-tests-2.4.pom.asc.md5\">kundera-tests-2.4.pom.asc.md5</a>                      08-Mar-2013 13:20                  32"
+			+ "<a href=\"kundera-tests-2.4.pom.asc.sha1\">kundera-tests-2.4.pom.asc.sha1</a>                     08-Mar-2013 13:20                  40"
+			+ "<a href=\"kundera-tests-2.4.pom.md5\">kundera-tests-2.4.pom.md5</a>                          08-Mar-2013 13:20                  32"
+			+ "<a href=\"kundera-tests-2.4.pom.sha1\">kundera-tests-2.4.pom.sha1</a>                         08-Mar-2013 13:20                  40"
+			+ "</pre><hr></body>" + "</html>";
+
+	private static final String TEST_URL = "http://repo1.maven.org/maven2/com/";
 
 	@Test
 	public void testParseMetaData() throws Exception {
 		List<String>[] listing = LinkTask.parseListing(METADATA, TEST_URL);
 		List<String> expectedDownloads = Arrays.asList(new String[] { TEST_URL
 				+ "maven-metadata.xml" });
-		List<String> expectedLinks = Arrays.asList(new String[] { TEST_URL + "0.2/" });
+		List<String> expectedLinks = Arrays.asList(new String[] { TEST_URL
+				+ "0.2/" });
 		List[] expected = { expectedDownloads, expectedLinks };
 		assertArrayEquals(expected, listing);
 	}
@@ -110,6 +144,29 @@ public class TestLinkTask {
 		List<String> expectedLinks = Collections.EMPTY_LIST;
 		List[] expected = { expectedDownloads, expectedLinks };
 		assertArrayEquals(expected, listing);
+	}
 
+	@Test
+	public void testParseJarPomAsc2() throws Exception {
+		String testUrl = "http://repo1.maven.org/maven2/com/impetus/kundera-tests/2.4/";
+		List<String>[] listing = LinkTask.parseListing(JAR_POM_ASC_2, testUrl);
+		List<String> expectedDownloads = Arrays.asList(new String[] {
+				testUrl + "kundera-tests-2.4.jar",
+				testUrl + "kundera-tests-2.4.jar.asc",
+				testUrl + "kundera-tests-2.4.pom",
+				testUrl + "kundera-tests-2.4.pom.asc" });
+		List<String> expectedLinks = Collections.EMPTY_LIST;
+		List[] expected = { expectedDownloads, expectedLinks };
+		assertArrayEquals(expected, listing);
+	}
+
+	@Test
+	public void testParent() throws Exception {
+		assertTrue(LinkTask.isParent(
+				"http://repo1.maven.org/maven2/com/impetus/kundera-tests/2.4/",
+				"http://repo1.maven.org/maven2/com/impetus/kundera-tests/"));
+		assertFalse(LinkTask.isParent(
+				"http://repo1.maven.org/maven2/com/impetus/kundera-tests/2.4/",
+				"http://repo1.maven.org/maven2/com/impetus/kundera-tests/2.4/"));
 	}
 }

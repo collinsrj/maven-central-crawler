@@ -1,5 +1,1 @@
-HTTPClient/
-codehaus/
-colt/
-com/101tec/
-com/3levers/
+com/impetus/kundera-tests/

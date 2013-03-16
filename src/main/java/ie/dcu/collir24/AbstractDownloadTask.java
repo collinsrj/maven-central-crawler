@@ -9,9 +9,10 @@ import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.protocol.HttpContext;
 
 /**
- * Base class for HTTP downloads. 
+ * Base class for HTTP downloads.
+ * 
  * @author rcollins
- *
+ * 
  */
 public abstract class AbstractDownloadTask {
 
