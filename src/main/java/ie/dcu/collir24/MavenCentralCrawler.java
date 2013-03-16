@@ -33,7 +33,7 @@ import org.apache.http.protocol.HttpContext;
 public class MavenCentralCrawler {
 	protected static final String MAVEN_REPO_BASE = "http://repo1.maven.org/maven2/";
 	private HttpClient httpClient;
-	private final ExecutorService exec = Executors.newFixedThreadPool(10);
+	private final ExecutorService exec = Executors.newFixedThreadPool(4);
 
 	public MavenCentralCrawler() {
 		File downloadDir = new File("maven2");
