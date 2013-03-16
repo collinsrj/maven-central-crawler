@@ -45,7 +45,6 @@ public class FileDownloadTask extends AbstractDownloadTask implements Runnable {
 	}
 
 	public void run() {
-		LOGGER.info(uri.toString());
 		getFile();
 	}
 
