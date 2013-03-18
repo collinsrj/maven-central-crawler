@@ -5,9 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,8 +28,7 @@ import org.jsoup.select.Elements;
  * 
  */
 public class LinkTask extends AbstractDownloadTask implements Runnable {
-	private final ExecutorService exec;
-	private static final String MAVEN_BASE = "http://repo1.maven.org/maven2/";
+	 final ExecutorService exec;
 
 	public LinkTask(final String uriString, final HttpClient httpClient,
 			ExecutorService exec) {
@@ -43,7 +40,8 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 			.compile("maven-metadata.xml$|[^javadoc|sources|test\\-sources|tests].jar$|.pom$|.pom.asc$|[^javadoc|sources|test\\-sources|tests].jar.asc$");
 
 	public void run() {
-		System.out.println("l:" + uri.toString().substring(MAVEN_BASE.length()));
+		System.out
+				.println("l:" + uri.toString().substring(MAVEN_BASE.length()));
 		String listing;
 		try {
 			listing = getListing();
@@ -54,25 +52,30 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 		List<String>[] listingDetails = parseListing(listing, uri.toString());
 		List<String> filesToDownload = listingDetails[0];
 		List<String> linksToFollow = listingDetails[1];
-		String latestVersion = getLatestVersion(filesToDownload);
-		processListing(filesToDownload, linksToFollow, latestVersion);
+		boolean latestVersionAvailable = isLatestVersionAvailable(
+				filesToDownload, linksToFollow);
+		if (!latestVersionAvailable) {
+			processListing(filesToDownload, linksToFollow);
+		}
 	}
 
-	private String getLatestVersion(List<String> filesToDownload) {
+	/**
+	 * 
+	 * @param filesToDownload
+	 * @param linksToFollow
+	 * @return
+	 */
+	private boolean isLatestVersionAvailable(List<String> filesToDownload,
+			List<String> linksToFollow) {
 		String latestVersion = null;
 		String metadata = containsMetadata(filesToDownload);
-		if (metadata != null) {
-			Future<String> latestVersionFuture = exec
-					.submit(new MetadataVersionTask(metadata, httpClient));
-			try {
-				latestVersion = latestVersionFuture.get();
-			} catch (InterruptedException e) {
-				Thread.interrupted();
-			} catch (ExecutionException e) {
-				LOGGER.log(Level.WARNING, "Problem retrieving metadata.", e);
-			}
+		if (metadata == null) {
+			return false;
+		} else {
+			exec.submit(new MetadataLinkTask(metadata, filesToDownload,
+					linksToFollow, httpClient, exec));
+			return true;
 		}
-		return latestVersion;
 	}
 
 	/**
@@ -89,18 +92,12 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 		return null;
 	}
 
-	private void processListing(List<String> filesToDownload,
-			List<String> linksToFollow, String latestVersion) {
-		if (latestVersion == null) {
-			for (String fileToDownload : filesToDownload) {
-				exec.submit(new FileDownloadTask(fileToDownload, httpClient));
-			}
-			for (String linkToFollow : linksToFollow) {
-				exec.submit(new LinkTask(linkToFollow, httpClient, exec));
-			}
-		} else {
-			exec.submit(new LinkTask(uri + latestVersion + "/", httpClient,
-					exec));
+	void processListing(List<String> filesToDownload, List<String> linksToFollow) {
+		for (String fileToDownload : filesToDownload) {
+			exec.submit(new FileDownloadTask(fileToDownload, httpClient));
+		}
+		for (String linkToFollow : linksToFollow) {
+			exec.submit(new LinkTask(linkToFollow, httpClient, exec));
 		}
 	}
 
@@ -121,7 +118,6 @@ public class LinkTask extends AbstractDownloadTask implements Runnable {
 		while (linksIterator.hasNext()) {
 			Element link = linksIterator.next();
 			String href = link.absUrl("href");
-
 			if (isParent(completeUrl, href)) {
 				continue;
 			}

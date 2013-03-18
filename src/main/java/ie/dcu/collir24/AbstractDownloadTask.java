@@ -15,7 +15,7 @@ import org.apache.http.protocol.HttpContext;
  * 
  */
 public abstract class AbstractDownloadTask {
-
+	protected static final String MAVEN_BASE = "http://repo1.maven.org/maven2/";
 	static final Logger LOGGER = Logger.getLogger(AbstractDownloadTask.class
 			.getName());
 	protected static final int MAX_BYTES = 10000000;// 10MB

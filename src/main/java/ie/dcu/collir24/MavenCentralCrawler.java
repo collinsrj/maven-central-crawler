@@ -28,12 +28,15 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.GzipDecompressingEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.PoolingClientConnectionManager;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HttpContext;
 
 public class MavenCentralCrawler {
 	protected static final String MAVEN_REPO_BASE = "http://repo1.maven.org/maven2/";
 	private HttpClient httpClient;
-	private final ExecutorService exec = Executors.newFixedThreadPool(4);
+	private final ExecutorService exec = Executors.newFixedThreadPool(1);
 
 	public MavenCentralCrawler() {
 		File downloadDir = new File("maven2");
@@ -42,7 +45,8 @@ public class MavenCentralCrawler {
 		}
 		System.setProperty("download.dir", downloadDir.getAbsolutePath()
 				+ File.separator);
-
+		final HttpParams httpParams = new BasicHttpParams();
+	    HttpConnectionParams.setConnectionTimeout(httpParams, 10000);
 		PoolingClientConnectionManager cm = new PoolingClientConnectionManager();
 		cm.setDefaultMaxPerRoute(6);// increase from the default of 2
 		httpClient = gzipClient(new DefaultHttpClient(cm));

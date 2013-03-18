@@ -17,6 +17,14 @@ public class TestMetaDataDownloadTask {
 
 	private static final String TEST_NO_VERSION = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<metadata><plugins><plugin><name>Maven XBean Plugin</name><prefix>xbean</prefix><artifactId>maven-xbean-plugin</artifactId></plugin></plugins></metadata>";
 
+	private static final String TEST_NO_VERSION_2 = ""
+			+ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + "<metadata>"
+			+ "  <plugins>" + "    <plugin>"
+			+ "      <name>springmvc-router-ide Maven Mojo</name>"
+			+ "      <prefix>springmvc-router-ide</prefix>"
+			+ "      <artifactId>springmvc-router-ide</artifactId>"
+			+ "    </plugin>" + "  </plugins>" + "</metadata>";
+
 	/**
 	 * Gets the version from the /metadata/versioning/latest element
 	 * 
@@ -24,7 +32,7 @@ public class TestMetaDataDownloadTask {
 	 */
 	@Test
 	public void testParseMetaData() throws Exception {
-		String versionToDownload = MetadataVersionTask
+		String versionToDownload = MetadataLinkTask
 				.getVersionToDownload(TEST_DATA);
 		assertEquals(TEST_DATA_VERSION, versionToDownload);
 	}
@@ -36,7 +44,7 @@ public class TestMetaDataDownloadTask {
 	 */
 	@Test
 	public void testParseMetaDataNoLatest() throws Exception {
-		String versionToDownload = MetadataVersionTask
+		String versionToDownload = MetadataLinkTask
 				.getVersionToDownload(TEST_DATA_NO_LATEST);
 		assertEquals(TEST_DATA_NO_LATEST_VERSION, versionToDownload);
 	}
@@ -49,7 +57,7 @@ public class TestMetaDataDownloadTask {
 	 */
 	@Test
 	public void testParseMetaDataVersioningVersion() throws Exception {
-		String versionToDownload = MetadataVersionTask
+		String versionToDownload = MetadataLinkTask
 				.getVersionToDownload(TEST_DATA_VERSIONING_VERSION);
 		assertEquals(TEST_DATA_VERSIONING_VERSION_VERSION, versionToDownload);
 	}
@@ -62,8 +70,21 @@ public class TestMetaDataDownloadTask {
 	 */
 	@Test
 	public void testParseMetaDataNoVersion() throws Exception {
-		String versionToDownload = MetadataVersionTask
+		String versionToDownload = MetadataLinkTask
 				.getVersionToDownload(TEST_NO_VERSION);
+		assertNull(versionToDownload);
+	}
+	
+	/**
+	 * Gets the version where there's no versioning information specified at all
+	 * block
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testParseMetaDataNoVersion2() throws Exception {
+		String versionToDownload = MetadataLinkTask
+				.getVersionToDownload(TEST_NO_VERSION_2);
 		assertNull(versionToDownload);
 	}
 }
